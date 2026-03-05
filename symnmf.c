@@ -137,8 +137,8 @@ void transpose(double** A, double** T, int rows, int cols) {
 
 /* --- Section 1.4: Optimize H --- */
 double** symnmf_optimize(double** W, double** H, int n, int k) {
-    double beta = 0.5, eps = 1e-4, diff = 1.0;
-    int iter = 0, max_iter = 300, i, j;
+    double diff = 1.0;
+    int iter = 0, i, j;
     double **WH, **Ht, **HtH, **HHtH, **H_new;
 
     /* Allocate memory once to avoid leaks in the loop */
@@ -148,7 +148,7 @@ double** symnmf_optimize(double** W, double** H, int n, int k) {
     HHtH = allocate_matrix(n, k);
     H_new = allocate_matrix(n, k);
 
-    while (iter < max_iter && diff >= eps) {
+    while (iter < MAX_ITER && diff >= EPSILON) {
         mult_mat(W, H, WH, n, n, k);
         transpose(H, Ht, n, k);
         mult_mat(Ht, H, HtH, k, n, k);
@@ -157,7 +157,7 @@ double** symnmf_optimize(double** W, double** H, int n, int k) {
         diff = 0.0;
         for (i = 0; i < n; i++) {
             for (j = 0; j < k; j++) {
-                H_new[i][j] = H[i][j] * (1.0 - beta + beta * (WH[i][j] / HHtH[i][j]));
+                H_new[i][j] = H[i][j] * (1.0 - BETA + BETA * (WH[i][j] / HHtH[i][j]));
                 diff += (H_new[i][j] - H[i][j]) * (H_new[i][j] - H[i][j]);
             }
         }
