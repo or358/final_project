@@ -10,5 +10,12 @@ void print_matrix(double** matrix, int rows, int cols);
 /* Math Algorithms (Section 1 of PDF) */
 double sq_euclidean_dist(double* p1, double* p2, int d);
 double** sym(double** points, int n, int d);
+double** ddg(double** A, int n);
+double** norm(double** A, double** D, int n);
+
+/* Algorithm 1.4: Optimize H */
+void mult_mat(double** A, double** B, double** C, int rowsA, int colsA, int colsB);
+void transpose(double** A, double** T, int rows, int cols);
+double** symnmf_optimize(double** W, double** H, int n, int k);
 
 #endif
