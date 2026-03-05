@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h> /* <-- Add this line for strcmp */
 #include "symnmf.h"
 
 /* --- Utility & Memory Functions --- */
@@ -175,4 +176,83 @@ double** symnmf_optimize(double** W, double** H, int n, int k) {
     free_matrix(HHtH, n); free_matrix(H_new, n);
     
     return H;
+}
+
+/* --- Section 2.2: C Interface (CLI) --- */
+
+/* Helper to count points and dimensions from file */
+void get_dimensions(char* filename, int* n, int* d) {
+    FILE *fp = fopen(filename, "r");
+    char line[2048];
+    int cols = 0, rows = 0, i;
+    if (!fp) error_and_exit();
+    
+    if (fgets(line, 2048, fp) != NULL) {
+        rows++;
+        cols = 1;
+        for (i = 0; line[i] != '\0'; i++) {
+            if (line[i] == ',') cols++;
+        }
+    }
+    while (fgets(line, 2048, fp) != NULL) {
+        rows++;
+    }
+    fclose(fp);
+    *n = rows;
+    *d = cols;
+}
+
+/* Helper to load the data into a C matrix */
+double** load_data(char* filename, int n, int d) {
+    FILE *fp = fopen(filename, "r");
+    double **points = allocate_matrix(n, d);
+    int i, j;
+    if (!fp) error_and_exit();
+    
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < d; j++) {
+            if (fscanf(fp, "%lf", &points[i][j]) != 1) error_and_exit();
+            if (j < d - 1) fgetc(fp); /* consume the comma */
+        }
+    }
+    fclose(fp);
+    return points;
+}
+
+int main(int argc, char **argv) {
+    int n, d;
+    char *goal, *filename;
+    double **points, **A, **D, **W;
+    
+    if (argc != 3) error_and_exit();
+    goal = argv[1];
+    filename = argv[2];
+    
+    get_dimensions(filename, &n, &d);
+    points = load_data(filename, n, d);
+    
+    if (strcmp(goal, "sym") == 0) {
+        A = sym(points, n, d);
+        print_matrix(A, n, n);
+        free_matrix(A, n);
+    } else if (strcmp(goal, "ddg") == 0) {
+        A = sym(points, n, d);
+        D = ddg(A, n);
+        print_matrix(D, n, n);
+        free_matrix(A, n);
+        free_matrix(D, n);
+    } else if (strcmp(goal, "norm") == 0) {
+        A = sym(points, n, d);
+        D = ddg(A, n);
+        W = norm(A, D, n);
+        print_matrix(W, n, n);
+        free_matrix(A, n);
+        free_matrix(D, n);
+        free_matrix(W, n);
+    } else {
+        error_and_exit();
+    }
+    
+    free_matrix(points, n);
+    return 0;
 }
