@@ -1,6 +1,11 @@
 #ifndef SYMNMF_H
 #define SYMNMF_H
 
+/* Algorithm Constants */
+#define BETA 0.5
+#define EPSILON 1e-4
+#define MAX_ITER 300
+
 /* Memory and Utility Functions */
 void error_and_exit(void);
 double** allocate_matrix(int rows, int cols);
