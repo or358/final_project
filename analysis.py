@@ -8,65 +8,53 @@ import symnmf
 def euclidean_distance(p1, p2):
     return math.sqrt(sum((p1[i] - p2[i]) ** 2 for i in range(len(p1))))
 
-def run_kmeans(points, k, max_iter=300, epsilon=1e-4):
-    centroids = [p[:] for p in points[:k]]
-    d = len(points[0])
-    iteration_count = 0
-    
-    while iteration_count < max_iter:
-        clusters = [[] for _ in range(k)]
-        
-        # Step 1: Assign every point to the closest cluster
-        for x in points:
-            min_dist = float('inf')
-            closest_index = -1
-            for i in range(k):
-                dist = euclidean_distance(x, centroids[i])
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_index = i
-            clusters[closest_index].append(x)
-        
-        # Step 2 & 3: Update centroids and Check convergence
-        new_centroids = []
-        converged = True
-        
-        for i in range(k):
-            current_cluster = clusters[i]
-            if not current_cluster:
-                new_centroids.append(centroids[i])
-                continue
-            
-            cluster_size = len(current_cluster)
-            new_mu = [0.0] * d
-            for point in current_cluster:
-                for dim in range(d):
-                    new_mu[dim] += point[dim]
-            for dim in range(d):
-                new_mu[dim] /= cluster_size
-            
-            new_centroids.append(new_mu)
-            if euclidean_distance(centroids[i], new_mu) >= epsilon:
-                converged = False
-        
-        centroids = new_centroids
-        iteration_count += 1
-        if converged:
-            break
-            
-    # Final assignment to get the labels for silhouette_score
-    labels = [-1] * len(points)
-    for pt_idx, x in enumerate(points):
+def assign_clusters(points, centroids, k):
+    clusters = [[] for _ in range(k)]
+    for x in points:
         min_dist = float('inf')
-        closest_index = -1
+        closest = -1
         for i in range(k):
             dist = euclidean_distance(x, centroids[i])
             if dist < min_dist:
-                min_dist = dist
-                closest_index = i
-        labels[pt_idx] = closest_index
+                min_dist, closest = dist, i
+        clusters[closest].append(x)
+    return clusters
 
+def update_centroids(clusters, centroids, k, d, eps):
+    new_centroids = []
+    converged = True
+    for i in range(k):
+        if not clusters[i]:
+            new_centroids.append(centroids[i])
+            continue
+        size = len(clusters[i])
+        new_mu = [sum(pt[dim] for pt in clusters[i]) / size for dim in range(d)]
+        new_centroids.append(new_mu)
+        if euclidean_distance(centroids[i], new_mu) >= eps:
+            converged = False
+    return new_centroids, converged
+
+def get_labels(points, centroids, k):
+    labels = []
+    for x in points:
+        min_dist = float('inf')
+        closest = -1
+        for i in range(k):
+            dist = euclidean_distance(x, centroids[i])
+            if dist < min_dist:
+                min_dist, closest = dist, i
+        labels.append(closest)
     return labels
+
+def run_kmeans(points, k, max_iter=300, eps=1e-4):
+    centroids = [p[:] for p in points[:k]]
+    d = len(points[0])
+    for _ in range(max_iter):
+        clusters = assign_clusters(points, centroids, k)
+        centroids, converged = update_centroids(clusters, centroids, k, d, eps)
+        if converged:
+            break
+    return get_labels(points, centroids, k)
 
 # --- 2. SymNMF Implementation ---
 def init_h(W, n, k):
@@ -93,6 +81,14 @@ def run_symnmf(data, k):
         
     return labels
 
+def read_data(filename):
+    data = []
+    with open(filename, 'r') as f:
+        for line in f:
+            if line.strip():
+                data.append([float(x) for x in line.split(',')])
+    return data
+
 # --- 3. Main Analysis Flow ---
 def main():
     args = sys.argv
@@ -103,39 +99,21 @@ def main():
     try:
         k = int(args[1])
         filename = args[2]
-    except ValueError:
-        print("An Error Has Occurred")
-        sys.exit(1)
-        
-    # Read data
-    data = []
-    try:
-        with open(filename, 'r') as f:
-            for line in f:
-                if line.strip():
-                    data.append([float(x) for x in line.split(',')])
+        data = read_data(filename)
     except Exception:
         print("An Error Has Occurred")
         sys.exit(1)
         
-    n = len(data)
-    if k >= n or k <= 1:
+    if k >= len(data) or k <= 1:
         print("An Error Has Occurred")
         sys.exit(1)
         
     try:
-        # Run both algorithms
-        kmeans_labels = run_kmeans(data, k)
-        symnmf_labels = run_symnmf(data, k)
+        score_kmeans = silhouette_score(data, run_kmeans(data, k))
+        score_symnmf = silhouette_score(data, run_symnmf(data, k))
         
-        # Calculate silhouette scores
-        score_kmeans = silhouette_score(data, kmeans_labels)
-        score_symnmf = silhouette_score(data, symnmf_labels)
-        
-        # Output exactly as required
         print(f"nmf: {score_symnmf:.4f}")
         print(f"kmeans: {score_kmeans:.4f}")
-        
     except Exception:
         print("An Error Has Occurred")
         sys.exit(1)
